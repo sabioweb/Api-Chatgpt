@@ -23,7 +23,7 @@ A pure PHP OOP multi-model ChatGPT integration package supporting OCR, Mathemati
 ## Installation
 
 ```bash
-composer require sabioweb/chatgpt-multi-model
+composer require sabioweb/api-chatgpt
 ```
 
 Or add to your `composer.json`:
@@ -31,7 +31,7 @@ Or add to your `composer.json`:
 ```json
 {
     "require": {
-        "sabioweb/chatgpt-multi-model": "^1.0"
+        "sabioweb/api-chatgpt": "^1.0"
     }
 }
 ```

@@ -1,5 +1,5 @@
 {
-    "name": "sabioweb/chatgpt-multi-model",
+    "name": "sabioweb/api-chatgpt",
     "description": "A pure PHP OOP multi-model ChatGPT integration package supporting OCR, Mathematics, Programming, and Chat Bot models",
     "type": "library",
     "license": "GPL-3.0-or-later",

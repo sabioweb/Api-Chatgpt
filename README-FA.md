@@ -21,7 +21,7 @@
 ## نصب
 
 ```bash
-composer require sabioweb/chatgpt-multi-model
+composer require sabioweb/api-chatgpt
 ```
 
 یا به `composer.json` خود اضافه کنید:
@@ -29,7 +29,7 @@ composer require sabioweb/chatgpt-multi-model
 ```json
 {
     "require": {
-        "sabioweb/chatgpt-multi-model": "^1.0"
+        "sabioweb/api-chatgpt": "^1.0"
     }
 }
 ```
