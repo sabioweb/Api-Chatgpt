@@ -1,6 +1,6 @@
 # پکیج چند مدلی ChatGPT
 
-یک پکیج PHP خالص OOP برای یکپارچه‌سازی چند مدلی ChatGPT که از مدل‌های OCR، ریاضیات، برنامه‌نویسی و چت‌بات پشتیبانی می‌کند. این پکیج مستقل از فریمورک است، از طریق Composer قابل نصب است و می‌تواند در پروژه‌های PHP مستقل و برنامه‌های Laravel استفاده شود.
+یک پکیج PHP خالص OOP برای یکپارچه‌سازی چند مدلی ChatGPT که از مدل‌های OCR، ریاضیات، برنامه‌نویسی، چت‌بات و گفتار پشتیبانی می‌کند. این پکیج مستقل از فریمورک است، از طریق Composer قابل نصب است و می‌تواند در پروژه‌های PHP مستقل و برنامه‌های Laravel استفاده شود.
 
 ## ویژگی‌ها
 
@@ -8,6 +8,7 @@
 - **مدل ریاضیات**: حل مسائل و معادلات ریاضی
 - **مدل برنامه‌نویسی**: تولید کد، تحلیل و کمک به دیباگ
 - **مدل چت‌بات**: تعاملات هوش مصنوعی مکالمه‌ای
+- **مدل گفتار**: تبدیل گفتار به متن (رونویسی صوتی) و تبدیل متن به گفتار (سنتز صوتی)
 - **مستقل از فریمورک**: در Laravel، Symfony یا PHP مستقل کار می‌کند
 - **قابل نصب با Composer**: پشتیبانی از PSR-4 autoloading
 - **مدیریت خطای جامع**: Exception های سفارشی برای سناریوهای خطای مختلف
@@ -176,12 +177,67 @@ $history = [
 $response = $chatBot->chat('What is 2+2?', $history);
 ```
 
+### مدل گفتار
+
+تبدیل گفتار به متن و متن به گفتار:
+
+```php
+// استفاده از factory با تنظیمات پیش‌فرض
+
+// گفتار به متن: تبدیل صدا به متن
+$speechToText = $factory->createSpeechToTextService();
+
+// رونویسی از فایل صوتی
+$text = $speechToText->transcribeFromFile('/path/to/audio.mp3');
+
+// رونویسی از رشته base64
+$base64Audio = 'data:audio/mp3;base64,UklGRiQAAABXQVZFZm10...';
+$text = $speechToText->transcribeFromBase64($base64Audio, 'audio.mp3');
+
+// متن به گفتار: تبدیل متن به صدا
+$textToSpeech = $factory->createTextToSpeechService();
+
+// سنتز متن به صدا (برمی‌گرداند داده باینری)
+$audioData = $textToSpeech->synthesize('سلام دنیا!', 'nova', 'mp3', 1.0);
+
+// سنتز و ذخیره در فایل
+$textToSpeech->synthesizeToFile(
+    'سلام دنیا!',
+    '/path/to/output.mp3',
+    'nova',  // صدا: alloy, echo, fable, onyx, nova, shimmer
+    'mp3',   // فرمت: mp3, opus, aac, flac
+    1.0      // سرعت: 0.25 تا 4.0
+);
+
+// استفاده از تنظیمات سفارشی
+use SBAO\Speech\SpeechConfig;
+
+// پیکربندی گفتار به متن
+$sttConfig = new SpeechConfig(
+    sttModel: 'whisper-1',
+    sttLanguage: 'fa',
+    sttResponseFormat: 'json',
+    sttTemperature: 0.0
+);
+$speechToText = $factory->createSpeechToTextService($sttConfig);
+
+// پیکربندی متن به گفتار
+$ttsConfig = new SpeechConfig(
+    ttsModel: 'tts-1',
+    ttsVoice: 'nova',
+    ttsSpeed: 1.0,
+    ttsFormat: 'mp3'
+);
+$textToSpeech = $factory->createTextToSpeechService($ttsConfig);
+```
+
 ## مدیریت خطا
 
 پکیج Exception های سفارشی برای سناریوهای خطای مختلف ارائه می‌دهد:
 
 ```php
 use SBAO\Exception\InvalidImageException;
+use SBAO\Exception\InvalidAudioException;
 use SBAO\Exception\InvalidInputException;
 use SBAO\Exception\ApiException;
 use SBAO\Exception\NetworkException;
@@ -190,9 +246,14 @@ use SBAO\Exception\RateLimitException;
 
 try {
     $text = $ocrService->extractFromFile('/path/to/image.jpg');
+    // یا برای گفتار به متن:
+    // $text = $speechToText->transcribeFromFile('/path/to/audio.mp3');
 } catch (InvalidImageException $e) {
     // مدیریت تصویر نامعتبر
     echo "Invalid image: " . $e->getMessage();
+} catch (InvalidAudioException $e) {
+    // مدیریت صوتی نامعتبر
+    echo "Invalid audio: " . $e->getMessage();
 } catch (AuthenticationException $e) {
     // مدیریت خطای احراز هویت
     echo "Authentication failed: " . $e->getMessage();
@@ -238,6 +299,20 @@ try {
 - `systemPrompt`: پیام سیستم برای چت‌بات (اختیاری)
 - `maxHistory`: حداکثر تعداد پیام در تاریخچه (پیش‌فرض: `20`)
 
+### پیکربندی گفتار
+
+**گزینه‌های گفتار به متن:**
+- `sttModel`: مدل Whisper برای استفاده (پیش‌فرض: `whisper-1`)
+- `sttLanguage`: راهنمای زبان (اختیاری، مثلاً `fa`, `en`, `de`)
+- `sttResponseFormat`: فرمت پاسخ (پیش‌فرض: `json`)
+- `sttTemperature`: پارامتر دما 0.0-1.0 (پیش‌فرض: `0.0`)
+
+**گزینه‌های متن به گفتار:**
+- `ttsModel`: مدل TTS برای استفاده (پیش‌فرض: `tts-1`)
+- `ttsVoice`: انتخاب صدا - `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer` (پیش‌فرض: `alloy`)
+- `ttsSpeed`: ضریب سرعت 0.25-4.0 (پیش‌فرض: `1.0`)
+- `ttsFormat`: فرمت خروجی - `mp3`, `opus`, `aac`, `flac` (پیش‌فرض: `mp3`)
+
 ## فرمت‌های تصویر پشتیبانی شده
 
 - JPEG/JPG
@@ -246,6 +321,33 @@ try {
 - WebP
 
 حداکثر اندازه تصویر: 20MB
+
+## فرمت‌های صوتی پشتیبانی شده
+
+**فرمت‌های ورودی گفتار به متن:**
+- MP3
+- WAV
+- M4A
+- MP4
+- MPEG
+- MPGA
+- WebM
+
+حداکثر اندازه فایل صوتی: 25MB
+
+**فرمت‌های خروجی متن به گفتار:**
+- MP3
+- Opus
+- AAC
+- FLAC
+
+**صداهای متن به گفتار:**
+- `alloy` - صدای خنثی و متعادل
+- `echo` - صدای واضح و رسا
+- `fable` - صدای گرم و بیانگر
+- `onyx` - صدای عمیق و معتبر
+- `nova` - صدای روشن و پرانرژی
+- `shimmer` - صدای نرم و ملایم
 
 ## نیازمندی‌های API
 
