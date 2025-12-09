@@ -1,11 +1,11 @@
-/vendor/
-/.idea/
-/.vscode/
-composer.lock
-.phpunit.result.cache
-.phpunit.cache/
-phpunit.xml
-/tests/
-*.log
-.DS_Store
+# Ignore everything
+*
+
+# But not these files and directories
+!.gitignore
+!composer.json
+!README.md
+!README-FA.md
+!src/
+!src/**
 

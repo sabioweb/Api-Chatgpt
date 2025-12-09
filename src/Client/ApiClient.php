@@ -183,6 +183,269 @@ class ApiClient
     }
 
     /**
+     * Make a multipart/form-data POST request to the ChatGPT API (for file uploads).
+     *
+     * @param string $endpoint The API endpoint (e.g., 'audio/transcriptions')
+     * @param array $multipart The multipart form data
+     * @return array The decoded JSON response
+     * @throws ApiException
+     * @throws AuthenticationException
+     * @throws NetworkException
+     * @throws RateLimitException
+     */
+    public function postMultipart(string $endpoint, array $multipart): array
+    {
+        $attempt = 0;
+        $lastException = null;
+
+        while ($attempt < self::MAX_RETRIES) {
+            try {
+                $response = $this->httpClient->post($endpoint, [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $this->apiKey,
+                    ],
+                    'multipart' => $multipart,
+                ]);
+
+                return $this->parseResponse($response);
+            } catch (RequestException $e) {
+                $lastException = $e;
+                $response = $e->getResponse();
+
+                if ($response !== null) {
+                    $statusCode = $response->getStatusCode();
+                    $errorData = $this->parseErrorResponse($response);
+
+                    // Handle rate limiting
+                    if ($statusCode === 429) {
+                        $rateLimitException = new RateLimitException(
+                            $errorData['message'] ?? 'Rate limit exceeded',
+                            $statusCode
+                        );
+
+                        if (isset($errorData['retry_after'])) {
+                            $rateLimitException->setRetryAfter((int)$errorData['retry_after']);
+                        } elseif ($response->hasHeader('Retry-After')) {
+                            $retryAfter = (int)$response->getHeaderLine('Retry-After');
+                            $rateLimitException->setRetryAfter(time() + $retryAfter);
+                        }
+
+                        throw $rateLimitException;
+                    }
+
+                    // Handle authentication errors
+                    if ($statusCode === 401) {
+                        throw new AuthenticationException(
+                            $errorData['message'] ?? 'Authentication failed',
+                            $statusCode,
+                            $e
+                        );
+                    }
+
+                    // Handle API errors
+                    if ($statusCode >= 400 && $statusCode < 500) {
+                        throw new ApiException(
+                            $errorData['message'] ?? 'API request failed',
+                            $statusCode,
+                            $e
+                        );
+                    }
+
+                    // Retry on server errors (5xx)
+                    if ($statusCode >= 500 && $attempt < self::MAX_RETRIES - 1) {
+                        $attempt++;
+                        usleep(self::RETRY_DELAY * 1000 * $attempt); // Exponential backoff
+                        continue;
+                    }
+
+                    throw new ApiException(
+                        $errorData['message'] ?? 'API request failed',
+                        $statusCode,
+                        $e
+                    );
+                }
+
+                // Network errors
+                if ($e instanceof GuzzleException) {
+                    if ($attempt < self::MAX_RETRIES - 1) {
+                        $attempt++;
+                        usleep(self::RETRY_DELAY * 1000 * $attempt);
+                        continue;
+                    }
+                    throw new NetworkException(
+                        'Network error: ' . $e->getMessage(),
+                        0,
+                        $e
+                    );
+                }
+
+                throw new NetworkException(
+                    'Unexpected error: ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
+        }
+
+        // If we get here, all retries failed
+        if ($lastException instanceof NetworkException) {
+            throw $lastException;
+        }
+
+        throw new NetworkException(
+            'Failed to complete request after ' . self::MAX_RETRIES . ' attempts',
+            0,
+            $lastException
+        );
+    }
+
+    /**
+     * Make a POST request and return binary response (for TTS).
+     *
+     * @param string $endpoint The API endpoint (e.g., 'audio/speech')
+     * @param array $data The request payload
+     * @return string The binary audio data
+     * @throws ApiException
+     * @throws AuthenticationException
+     * @throws NetworkException
+     * @throws RateLimitException
+     */
+    public function postBinary(string $endpoint, array $data): string
+    {
+        $attempt = 0;
+        $lastException = null;
+
+        while ($attempt < self::MAX_RETRIES) {
+            try {
+                $response = $this->httpClient->post($endpoint, [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $this->apiKey,
+                        'Content-Type' => 'application/json',
+                    ],
+                    'json' => $data,
+                ]);
+
+                $statusCode = $response->getStatusCode();
+                if ($statusCode >= 200 && $statusCode < 300) {
+                    return (string)$response->getBody();
+                }
+
+                // Handle errors
+                $errorData = $this->parseErrorResponse($response);
+
+                if ($statusCode === 429) {
+                    $rateLimitException = new RateLimitException(
+                        $errorData['message'] ?? 'Rate limit exceeded',
+                        $statusCode
+                    );
+
+                    if (isset($errorData['retry_after'])) {
+                        $rateLimitException->setRetryAfter((int)$errorData['retry_after']);
+                    } elseif ($response->hasHeader('Retry-After')) {
+                        $retryAfter = (int)$response->getHeaderLine('Retry-After');
+                        $rateLimitException->setRetryAfter(time() + $retryAfter);
+                    }
+
+                    throw $rateLimitException;
+                }
+
+                if ($statusCode === 401) {
+                    throw new AuthenticationException(
+                        $errorData['message'] ?? 'Authentication failed',
+                        $statusCode
+                    );
+                }
+
+                throw new ApiException(
+                    $errorData['message'] ?? 'API request failed',
+                    $statusCode
+                );
+            } catch (RequestException $e) {
+                $lastException = $e;
+                $response = $e->getResponse();
+
+                if ($response !== null) {
+                    $statusCode = $response->getStatusCode();
+                    $errorData = $this->parseErrorResponse($response);
+
+                    if ($statusCode === 429) {
+                        $rateLimitException = new RateLimitException(
+                            $errorData['message'] ?? 'Rate limit exceeded',
+                            $statusCode
+                        );
+
+                        if (isset($errorData['retry_after'])) {
+                            $rateLimitException->setRetryAfter((int)$errorData['retry_after']);
+                        } elseif ($response->hasHeader('Retry-After')) {
+                            $retryAfter = (int)$response->getHeaderLine('Retry-After');
+                            $rateLimitException->setRetryAfter(time() + $retryAfter);
+                        }
+
+                        throw $rateLimitException;
+                    }
+
+                    if ($statusCode === 401) {
+                        throw new AuthenticationException(
+                            $errorData['message'] ?? 'Authentication failed',
+                            $statusCode,
+                            $e
+                        );
+                    }
+
+                    if ($statusCode >= 400 && $statusCode < 500) {
+                        throw new ApiException(
+                            $errorData['message'] ?? 'API request failed',
+                            $statusCode,
+                            $e
+                        );
+                    }
+
+                    if ($statusCode >= 500 && $attempt < self::MAX_RETRIES - 1) {
+                        $attempt++;
+                        usleep(self::RETRY_DELAY * 1000 * $attempt);
+                        continue;
+                    }
+
+                    throw new ApiException(
+                        $errorData['message'] ?? 'API request failed',
+                        $statusCode,
+                        $e
+                    );
+                }
+
+                if ($e instanceof GuzzleException) {
+                    if ($attempt < self::MAX_RETRIES - 1) {
+                        $attempt++;
+                        usleep(self::RETRY_DELAY * 1000 * $attempt);
+                        continue;
+                    }
+                    throw new NetworkException(
+                        'Network error: ' . $e->getMessage(),
+                        0,
+                        $e
+                    );
+                }
+
+                throw new NetworkException(
+                    'Unexpected error: ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
+        }
+
+        if ($lastException instanceof NetworkException) {
+            throw $lastException;
+        }
+
+        throw new NetworkException(
+            'Failed to complete request after ' . self::MAX_RETRIES . ' attempts',
+            0,
+            $lastException
+        );
+    }
+
+    /**
      * Parse an error response from the API.
      *
      * @param ResponseInterface $response

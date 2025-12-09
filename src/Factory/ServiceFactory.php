@@ -13,6 +13,9 @@ use SBAO\Ocr\OcrConfig;
 use SBAO\Ocr\OcrService;
 use SBAO\Programming\ProgrammingConfig;
 use SBAO\Programming\ProgrammingService;
+use SBAO\Speech\SpeechConfig;
+use SBAO\Speech\SpeechToTextService;
+use SBAO\Speech\TextToSpeechService;
 
 /**
  * Factory for creating service instances with different configurations.
@@ -87,6 +90,34 @@ class ServiceFactory
         $config = $config ?? ChatBotConfig::default();
 
         return new ChatBotService($apiClient, $config);
+    }
+
+    /**
+     * Create a Speech-to-Text service instance.
+     *
+     * @param SpeechConfig|null $config Optional Speech configuration
+     * @return SpeechToTextService
+     */
+    public function createSpeechToTextService(?SpeechConfig $config = null): SpeechToTextService
+    {
+        $apiClient = new ApiClient($this->apiKey);
+        $config = $config ?? SpeechConfig::default();
+
+        return new SpeechToTextService($apiClient, $config);
+    }
+
+    /**
+     * Create a Text-to-Speech service instance.
+     *
+     * @param SpeechConfig|null $config Optional Speech configuration
+     * @return TextToSpeechService
+     */
+    public function createTextToSpeechService(?SpeechConfig $config = null): TextToSpeechService
+    {
+        $apiClient = new ApiClient($this->apiKey);
+        $config = $config ?? SpeechConfig::default();
+
+        return new TextToSpeechService($apiClient, $config);
     }
 }
 
